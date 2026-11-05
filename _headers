@@ -1,0 +1,5 @@
+/*.glb
+  Content-Type: model/gltf-binary
+  Cache-Control: public, max-age=86400
+/*
+  Permissions-Policy: camera=(self), xr-spatial-tracking=(self)
