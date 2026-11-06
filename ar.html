@@ -69,6 +69,7 @@ summary{cursor:pointer;list-style:none;text-decoration:underline;opacity:.8}
     <button id="move">Move</button>
     <button id="cut2">Ceiling: on</button>
     <button id="toggle">Hide</button>
+    <button id="exitAR">Exit AR</button>
     <label>Height <input type="range" id="hgt" min="-0.3" max="0.3" step="0.01" value="0" style="width:90px"></label>
   </div>
 
@@ -145,7 +146,7 @@ function layout(){
   if(REF.A)markA.position.set(REF.A[0],0,REF.A[1]);
   if(REF.B)markB.position.set(REF.B[0],0,REF.B[1]);
   const inAR=renderer.xr.isPresenting;
-  markS.visible=!twoPoint&&!isIOS&&!(inAR&&locked);markerScale(inAR?0.6:1.15);
+  markS.visible=!twoPoint&&!isIOS&&!inAR;markerScale(inAR?0.6:1.15);
   markA.visible=twoPoint&&!!REF.A&&!inAR;markB.visible=twoPoint&&!!REF.B&&!inAR;
 }
 
@@ -205,7 +206,7 @@ $('twoPt').onchange=()=>{twoPoint=$('twoPt').checked;store.set('imaratTwoPt',two
 /* ---------- AR (Android / WebXR) ---------- */
 const reticle=new THREE.Mesh(new THREE.RingGeometry(.08,.11,36).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0xffb060}));
 reticle.matrixAutoUpdate=false;reticle.visible=false;scene.add(reticle);
-let hitSource=null,lastHit=null,locked=false,taps=[],pins=[],baseY=0,baseYaw=0,xrAnchor=null,anchorStart=null;
+let floorSeen=false,hitSource=null,lastHit=null,locked=false,taps=[],pins=[],baseY=0,baseYaw=0,xrAnchor=null,anchorStart=null;
 const tmpV=new THREE.Vector3(),tmpQ=new THREE.Quaternion(),fwd=new THREE.Vector3();
 const yawOf=v=>Math.atan2(-v.z,v.x);
 
@@ -227,6 +228,7 @@ function dropXRAnchor(){if(xrAnchor){try{xrAnchor.delete()}catch(e){}}xrAnchor=n
 function unlock(){
   locked=false;taps=[];pins.forEach(p=>scene.remove(p));pins=[];dropXRAnchor();
   $('arRot').classList.add('hide');$('move').classList.add('hide');layout();
+  if(!twoPoint)anchor.visible=false;floorSeen=false;
   if(twoPoint){anchor.visible=false;msg('Scan the floor, then tap the base of column A.');}
   else msg('Move the phone slowly over the floor until the ring appears.');
 }
@@ -249,6 +251,7 @@ function onSelect(){
   msg(`Placed. Site ${meas.toFixed(2)} m vs model ${modelDist.toFixed(2)} m (${err>=0?'+':''}${err.toFixed(1)}%).`);
 }
 $('move').onclick=()=>unlock();
+$('exitAR').onclick=()=>{const s=renderer.xr.getSession();if(s)s.end();};
 // taps on the on-screen buttons must not also count as an AR tap
 // Only taps on controls are kept from placing the model; taps anywhere else place it.
 $('overlay').addEventListener('beforexrselect',e=>{if(e.target.closest&&e.target.closest('button,input,a,label,summary,.rot'))e.preventDefault();});
@@ -257,7 +260,7 @@ let arOK=false;
 if(!isIOS&&navigator.xr){try{arOK=await navigator.xr.isSessionSupported('immersive-ar')}catch(e){}}
 if(arOK){
   const b=ARButton.createButton(renderer,{requiredFeatures:['hit-test'],optionalFeatures:['dom-overlay','anchors'],domOverlay:{root:$('overlay')}});
-  b.style.display='none';document.body.appendChild(b);
+  b.style.visibility='hidden';b.style.pointerEvents='none';b.style.position='fixed';b.style.left='-9999px';document.body.appendChild(b);
   $('arbtn').classList.remove('hide');$('arbtn').onclick=()=>b.click();
   $('precise').classList.remove('hide');
 }else if(isIOS){
@@ -274,6 +277,7 @@ renderer.xr.addEventListener('sessionstart',async()=>{
   $('arTools').classList.remove('hide');anchor.visible=false;unlock();
 });
 renderer.xr.addEventListener('sessionend',()=>{
+  setTimeout(()=>{$('overlay').style.display='';},0);   // ARButton hides the overlay on exit
   hitSource=null;reticle.visible=false;unlock();locked=false;
   anchor.position.set(0,0,0);anchor.rotation.set(0,0,0);anchor.visible=true;
   scene.background=bg;grid.visible=true;setCut(true);layout();frameView();
@@ -292,8 +296,8 @@ renderer.setAnimationLoop((t,frame)=>{
       if(lastHit){
         tmpV.setFromMatrixPosition(reticle.matrix);anchor.position.copy(tmpV);
         baseYaw=cameraYawTowardModel();applyAnchorRot();
-        if(!anchor.visible){anchor.visible=true;msg('This is the office at full scale. Aim the ring at your start point and tap to place it.');}
-      }else anchor.visible=false;
+        if(!floorSeen){floorSeen=true;anchor.visible=true;msg('This is the office at full scale. Aim the ring at your start point and tap to place it.');}
+      }else if(floorSeen){floorSeen=false;anchor.visible=false;msg('Floor lost. Point the phone at the floor and move it slowly.');}
     }
     // keep the locked model pinned to the real world (ARCore anchor)
     if(locked&&xrAnchor){const ap=frame.getPose(xrAnchor.anchorSpace,ref);
