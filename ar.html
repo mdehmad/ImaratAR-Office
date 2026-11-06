@@ -8,21 +8,26 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,system-ui,sans-serif;background:#1c140e;color:#f3e7d8;overflow:hidden}
 canvas{display:block}
-#top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;z-index:10;pointer-events:none}
+#top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;z-index:10;pointer-events:none}
 #top a{pointer-events:auto;color:#f3e7d8;text-decoration:none;font-size:13px;letter-spacing:.12em;text-transform:uppercase;background:#0008;padding:8px 14px;border-radius:20px}
-.word{font-family:Georgia,serif;letter-spacing:.3em;font-weight:600;font-size:18px;pointer-events:auto}
+.word{font-family:Georgia,serif;letter-spacing:.3em;font-weight:600;font-size:18px}
 .word img{height:28px;display:block}
-#ui{position:fixed;left:0;right:0;bottom:0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,#000d 35%);z-index:10;display:flex;flex-direction:column;gap:10px}
-#msg{font-size:15px;text-align:center;line-height:1.4;min-height:21px}
+#ui{position:fixed;left:0;right:0;bottom:0;padding:16px 14px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,#000d 30%);z-index:10;display:flex;flex-direction:column;gap:10px}
+#msg{font-size:15px;text-align:center;line-height:1.45;min-height:21px;text-shadow:0 1px 3px #000}
 .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center}
-button,.file{background:#4a3a2c;color:#fff;border:0;border-radius:22px;padding:10px 15px;font-size:13px;cursor:pointer;font-family:inherit}
-button.main{background:#c8894a;font-size:15px;padding:13px 26px}
+button,.file{background:#4a3a2ccc;color:#fff;border:0;border-radius:22px;padding:10px 15px;font-size:13px;cursor:pointer;font-family:inherit}
+button.main,.main{background:#c8894a;font-size:16px;padding:14px 30px;font-weight:500;text-decoration:none;color:#fff;border-radius:26px;display:inline-flex;align-items:center;gap:8px}
 button.on{outline:2px solid #ffb060}
 .file input{display:none}
-label{font-size:12px;opacity:.85}
-input[type=range]{width:110px;vertical-align:middle}
+label{font-size:12px;opacity:.9}
+.rot{display:flex;align-items:center;gap:8px;width:100%;max-width:440px;margin:auto}
+.rot input{flex:1}
+.rot b{min-width:46px;text-align:right;font-weight:500;font-size:13px}
 .hide{display:none!important}
 #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;letter-spacing:.2em;text-transform:uppercase;z-index:5;pointer-events:none}
+details{font-size:12px;text-align:center;opacity:.9}
+summary{cursor:pointer;list-style:none;text-decoration:underline;opacity:.8}
+#ql img{display:none}
 </style>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 </head>
@@ -36,29 +41,39 @@ input[type=range]{width:110px;vertical-align:middle}
 <div id="ui">
   <div id="msg"></div>
 
-  <!-- Preview-mode tools: pick the two reference columns on the MODEL -->
-  <div class="row" id="previewTools">
-    <button id="pickA">Set model point A</button>
-    <button id="pickB">Set model point B</button>
+  <!-- ===== 3D preview tools ===== -->
+  <div id="previewTools" class="row">
+    <button id="pickS">Set start point</button>
     <button id="cut">Ceiling: on</button>
-    <label class="file">Load model…<input type="file" id="file" accept=".glb,.gltf,.dae"></label>
   </div>
+  <details id="precise" class="hide">
+    <summary>Precise mode (two columns)</summary>
+    <div class="row" style="margin-top:8px">
+      <label><input type="checkbox" id="twoPt"> Use two points</label>
+      <button id="pickA">Set point A</button>
+      <button id="pickB">Set point B</button>
+    </div>
+  </details>
 
-  <!-- AR-mode tools -->
-  <div class="row hide" id="arTools">
-    <button id="reset">Re-pick</button>
-    <button id="rot">Rotate 90°</button>
-    <button id="flip">Flip</button>
-    <button id="toggle">Hide</button>
+  <!-- ===== AR tools ===== -->
+  <div id="arRot" class="rot hide">
+    <button id="rl">⟲</button>
+    <input type="range" id="rotS" min="-180" max="180" step="0.5" value="0">
+    <button id="rr">⟳</button>
+    <b id="rotV">0°</b>
+  </div>
+  <div id="arTools" class="row hide">
+    <button id="move">Move</button>
     <button id="cut2">Ceiling: on</button>
-    <label><input type="checkbox" id="fit"> Fit to measured</label>
-  </div>
-  <div class="row hide" id="arTools2">
-    <label>Height <input type="range" id="hgt" min="-0.5" max="0.5" step="0.01" value="0"></label>
-    <label>Fine turn <input type="range" id="turn" min="-10" max="10" step="0.25" value="0"></label>
+    <button id="toggle">Hide</button>
+    <label>Height <input type="range" id="hgt" min="-0.3" max="0.3" step="0.01" value="0" style="width:90px"></label>
   </div>
 
-  <div class="row"><button class="main hide" id="arbtn">Start AR</button></div>
+  <div class="row">
+    <button class="main hide" id="arbtn">Start AR</button>
+    <!-- iPhone / iPad: Apple AR Quick Look (needs an <img> child) -->
+    <a class="main hide" id="ql" rel="ar" href="model.usdz#allowsContentScaling=0"><img src="img/reception.jpg" alt="">View in AR</a>
+  </div>
 </div>
 
 <script type="module">
@@ -66,23 +81,12 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {ARButton} from 'three/addons/webxr/ARButton.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
-import {ColladaLoader} from 'three/addons/loaders/ColladaLoader.js';
 import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
-
-/* =========================================================
-   CONFIG
-   Put your exported model next to this page as model.glb
-   (or model.dae with its texture folder).
-   Reference points A/B are in model metres (x,z on the floor).
-   Leave null to pick them on the model in the 3D preview.
-   ========================================================= */
-const MODEL_FILES = ['model.glb','model.gltf','model.dae'];
-let REF = {A:null, B:null};
-try{const s=JSON.parse(localStorage.getItem('imaratRef')||'null');if(s)REF=s;}catch(e){}
 
 const $=id=>document.getElementById(id);
 const msg=t=>$('msg').textContent=t;
+const store={get(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 
 /* ---------- renderer / scene ---------- */
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
@@ -91,195 +95,209 @@ renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
 renderer.xr.enabled=true;renderer.localClippingEnabled=true;
-const cutLocal=new THREE.Plane(new THREE.Vector3(0,-1,0),2.4),cutWorld=new THREE.Plane();let cutOn=false;
 document.body.appendChild(renderer.domElement);
 
-const scene=new THREE.Scene();
-const bg=new THREE.Color(0x2a2018);scene.background=bg;
+const scene=new THREE.Scene();const bg=new THREE.Color(0x2a2018);scene.background=bg;
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.02,500);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;
 scene.add(new THREE.HemisphereLight(0xfff1dd,0x5a4632,1.3));
 const sun=new THREE.DirectionalLight(0xffc888,1.4);sun.position.set(-10,16,8);scene.add(sun);
-const grid=new THREE.GridHelper(60,60,0x6b5440,0x3a2d22);scene.add(grid);
+const grid=new THREE.GridHelper(80,80,0x6b5440,0x3a2d22);scene.add(grid);
 
-/* Hierarchy: anchor (site A, site A→B dir) > aligned (model A→B mapped to +X) > content (model) */
-const anchor=new THREE.Group(), aligned=new THREE.Group(), content=new THREE.Group();
+/* anchor = where/which way it sits in the world
+   aligned = extra turn (user rotation, or A→B alignment)
+   content = the model, shifted so the start point is at the origin */
+const anchor=new THREE.Group(),aligned=new THREE.Group(),content=new THREE.Group();
 anchor.add(aligned);aligned.add(content);scene.add(anchor);
 
-/* Reference markers on the model */
-const mk=c=>{const g=new THREE.Group();
-  const p=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,3,16),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.55}));p.position.y=1.5;g.add(p);
-  const r=new THREE.Mesh(new THREE.RingGeometry(0.25,0.35,32).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:c,side:2}));r.position.y=0.01;g.add(r);
-  g.visible=false;content.add(g);return g};
-const markA=mk(0xff5544), markB=mk(0x44b8ff);
+/* markers */
+function pinMarker(color,label){
+  const g=new THREE.Group();
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,1.9,12),new THREE.MeshBasicMaterial({color}));pole.position.y=.95;g.add(pole);
+  const ball=new THREE.Mesh(new THREE.SphereGeometry(.32,20,14),new THREE.MeshBasicMaterial({color}));ball.position.y=2.0;g.add(ball);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.3,.42,40).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color,side:2}));ring.position.y=.01;g.add(ring);
+  g.visible=false;content.add(g);return g;
+}
+const markS=pinMarker(0xff8a2a),markA=pinMarker(0xff5544),markB=pinMarker(0x44b8ff);
+function markerScale(s){markers.forEach(m=>m.scale.setScalar(s));}
+const markers=[markS,markA,markB];markerScale(1.15);
 
-let modelDist=1, extraRot=0, flip=1, fine=0, modelLoaded=false, bbox=new THREE.Box3();
+/* ---------- state ---------- */
+let model=null,bbox=new THREE.Box3();
+let START=store.get('imaratStart');          // [x,z] in model metres
+let REF=store.get('imaratRef')||{A:null,B:null};
+let twoPoint=!!store.get('imaratTwoPt');
+let userRot=0,modelDist=1;
 
-function applyRef(){
-  if(!REF.A||!REF.B){markA.visible=markB.visible=false;return;}
-  const A=REF.A,B=REF.B,dx=B[0]-A[0],dz=B[1]-A[1];
-  modelDist=Math.hypot(dx,dz)||1;
-  content.position.set(-A[0],0,-A[1]);
-  aligned.rotation.y=Math.atan2(dz,dx)+extraRot+fine*Math.PI/180;
-  aligned.scale.z=flip;
-  markA.position.set(A[0],bbox.min.y,A[1]);markB.position.set(B[0],bbox.min.y,B[1]);
-  markA.visible=markB.visible=true;
+function layout(){
+  // positions content/aligned for the current mode (anchor is set by AR placement)
+  if(twoPoint&&REF.A&&REF.B){
+    const [ax,az]=REF.A,[bx,bz]=REF.B;modelDist=Math.hypot(bx-ax,bz-az)||1;
+    content.position.set(-ax,0,-az);aligned.rotation.y=Math.atan2(bz-az,bx-ax);
+  }else{
+    content.position.set(-START[0],0,-START[1]);aligned.rotation.y=0;
+  }
+  markS.position.set(START[0],0,START[1]);
+  if(REF.A)markA.position.set(REF.A[0],0,REF.A[1]);
+  if(REF.B)markB.position.set(REF.B[0],0,REF.B[1]);
+  const inAR=renderer.xr.isPresenting;
+  markS.visible=!twoPoint&&!isIOS&&!(inAR&&locked);markerScale(inAR?0.6:1.15);
+  markA.visible=twoPoint&&!!REF.A&&!inAR;markB.visible=twoPoint&&!!REF.B&&!inAR;
 }
 
-/* ---------- model loading ---------- */
-const draco=new DRACOLoader();draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-const gltfL=new GLTFLoader();gltfL.setDRACOLoader(draco);gltfL.setMeshoptDecoder(MeshoptDecoder);
-const daeL=new ColladaLoader();
-
+/* ---------- model ---------- */
+const loader=new GLTFLoader();loader.setMeshoptDecoder(MeshoptDecoder);
 function useModel(obj){
-  content.children.filter(c=>c!==markA&&c!==markB).forEach(c=>content.remove(c));
-  obj.updateMatrixWorld(true);
-  bbox.setFromObject(obj);
-  obj.position.y-=bbox.min.y;            // sit floor at y=0
+  if(model)content.remove(model);
   obj.updateMatrixWorld(true);bbox.setFromObject(obj);
-  content.add(obj);
-  obj.traverse(o=>{if(o.isMesh){o.frustumCulled=true;if(o.material&&o.material.map)o.material.map.anisotropy=4;}});
-  modelLoaded=true;
-  if(!REF.A||!REF.B){                       // default: two front corners of the bounding box
-    REF={A:[bbox.min.x,bbox.min.z],B:[bbox.max.x,bbox.min.z]};
-  }
-  applyRef();
-  const s=bbox.getSize(new THREE.Vector3()),c=bbox.getCenter(new THREE.Vector3());
-  frameView();
-  $('load').classList.add('hide');setCut(!renderer.xr.isPresenting);
-  msg(`Model ${s.x.toFixed(1)} × ${s.z.toFixed(1)} m. Red = A, Blue = B. Set them on two columns you'll tap on site.`);
+  obj.position.y-=bbox.min.y;obj.updateMatrixWorld(true);bbox.setFromObject(obj);
+  model=obj;content.add(obj);
+  if(!START)START=[bbox.min.x,bbox.max.z];     // default: a building corner
+  layout();frameView();setCut(true);
+  $('load').classList.add('hide');
+  const s=bbox.getSize(new THREE.Vector3());
+  msg(isIOS
+    ? `Full-scale office ${s.x.toFixed(1)} × ${s.z.toFixed(1)} m. Tap "View in AR" to open it in your camera.`
+    : `Full-scale office ${s.x.toFixed(1)} × ${s.z.toFixed(1)} m. The orange pin is the start point. Tap "Set start point" to choose a spot you can find on site, such as the entrance or a column.`);
 }
 function frameView(){
-  const b=new THREE.Box3().setFromObject(anchor),s=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());
+  scene.updateMatrixWorld(true);
+  const b=new THREE.Box3().setFromObject(model||anchor),s=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());
   const d=Math.max(s.x,s.z,4);camera.position.set(c.x+d*.35,c.y+d*1.1,c.z+d*.75);controls.target.copy(c);controls.update();
 }
-function loadURL(url,ext){
-  return new Promise((res,rej)=>{
-    const L=ext==='dae'?daeL:gltfL;
-    L.load(url,r=>res(ext==='dae'?r.scene:r.scene),
-      x=>{if(x.total)$('load').textContent=`Loading model… ${Math.round(x.loaded/x.total*100)}%`},rej);
-  });
-}
-async function tryDefault(){
-  for(const f of MODEL_FILES){
-    try{const r=await fetch(f,{method:'HEAD'});if(!r.ok)continue;
-      useModel(await loadURL(f,f.split('.').pop()));return;}catch(e){}
-  }
-  useModel(buildProp());
-  msg('No model.glb found, showing placeholder layout. Use "Load model…" or add model.glb next to this page.');
-}
-$('file').onchange=async e=>{
-  const f=e.target.files[0];if(!f)return;
-  $('load').classList.remove('hide');$('load').textContent='Loading model…';
-  REF={A:null,B:null};
-  try{useModel(await loadURL(URL.createObjectURL(f),f.name.split('.').pop().toLowerCase()));}
-  catch(err){msg('Could not read that file: '+err.message);$('load').classList.add('hide');}
-};
+loader.load('model.glb',g=>useModel(g.scene),
+  x=>{if(x.total)$('load').textContent=`Loading model… ${Math.round(x.loaded/x.total*100)}%`},
+  e=>{$('load').textContent='Could not load model';msg(String(e.message||e))});
 
-/* Placeholder office if no model is present */
-function buildProp(){
-  const g=new THREE.Group(),M=(c,r=.7)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
-  const oak=M(0xc99a63),walnut=M(0x6b4328),fab=M(0xd8ccbb,.95),terr=M(0xd9c7b2,.4),wh=M(0xf1ece4,.5);
-  const box=(w,h,d,m,x,y,z)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y+h/2,z);g.add(o)};
-  box(14.6,.02,9.1,terr,7.3,0,4.55);
-  for(const x of[0,7.3,14.6])for(const z of[0,9.1])box(.45,3,.45,wh,x,0,z);
-  box(5,3,.1,walnut,3.6,0,8.9);box(3.2,1.1,.8,oak,3.6,0,7.4);
-  box(3,.45,.9,fab,3.6,0,3.8);box(4.2,.75,1.3,oak,11,0,2);
-  for(let c=0;c<3;c++)for(let r=0;r<2;r++)box(1.4,.75,.7,wh,9+c*1.7,0,5.6+r*1.8);
-  return g;
-}
+/* ---------- ceiling cut-away ---------- */
+const cutLocal=new THREE.Plane(new THREE.Vector3(0,-1,0),2.4),cutWorld=new THREE.Plane();let cutOn=false;
+function setCut(v){cutOn=v;renderer.clippingPlanes=v?[cutWorld]:[];$('cut').textContent=$('cut2').textContent='Ceiling: '+(v?'off':'on');}
+$('cut').onclick=$('cut2').onclick=()=>setCut(!cutOn);
 
-/* ---------- pick reference points on the model (preview) ---------- */
-let picking=null;const ray=new THREE.Raycaster(),ptr=new THREE.Vector2();
-['A','B'].forEach(k=>$('pick'+k).onclick=()=>{picking=picking===k?null:k;
-  $('pickA').classList.toggle('on',picking==='A');$('pickB').classList.toggle('on',picking==='B');
-  if(picking)msg(`Tap the base of column ${k} on the model.`);});
+/* ---------- pick points on the 3D model ---------- */
+let picking=null;const ray=new THREE.Raycaster(),ptr=new THREE.Vector2();let downAt=null;
+function setPicking(k){picking=picking===k?null:k;['S','A','B'].forEach(x=>$('pick'+x).classList.toggle('on',picking===x));
+  if(picking)msg(picking==='S'?'Tap the floor at your start point (entrance, a column corner, a door…).':`Tap the base of column ${picking}.`);}
+$('pickS').onclick=()=>setPicking('S');$('pickA').onclick=()=>setPicking('A');$('pickB').onclick=()=>setPicking('B');
+renderer.domElement.addEventListener('pointerdown',e=>downAt=[e.clientX,e.clientY]);
 renderer.domElement.addEventListener('pointerup',e=>{
-  if(!picking||renderer.xr.isPresenting)return;
+  if(!picking||!model||renderer.xr.isPresenting)return;
+  if(downAt&&Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1])>8)return;   // was a drag, not a tap
   ptr.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(ptr,camera);
-  const hit=ray.intersectObjects(content.children.filter(c=>c!==markA&&c!==markB),true)[0];if(!hit)return;
-  const local=content.worldToLocal(hit.point.clone());
-  REF[picking]=[+local.x.toFixed(3),+local.z.toFixed(3)];
-  if(!REF.A)REF.A=REF[picking];if(!REF.B)REF.B=REF[picking];
-  try{localStorage.setItem('imaratRef',JSON.stringify(REF))}catch(e){}
-  applyRef();
-  msg(`Point ${picking} set. A→B = ${modelDist.toFixed(2)} m (${(modelDist*3.281).toFixed(1)} ft).`);
-  picking=null;$('pickA').classList.remove('on');$('pickB').classList.remove('on');
+  const hit=ray.intersectObject(model,true)[0];if(!hit)return;
+  const p=content.worldToLocal(hit.point.clone()),v=[+p.x.toFixed(3),+p.z.toFixed(3)];
+  if(picking==='S'){START=v;store.set('imaratStart',START);msg('Start point set. Stand on that spot on site, then Start AR.');}
+  else{REF[picking]=v;store.set('imaratRef',REF);
+    if(REF.A&&REF.B)msg(`A→B = ${Math.hypot(REF.B[0]-REF.A[0],REF.B[1]-REF.A[1]).toFixed(2)} m.`);else msg(`Point ${picking} set.`);}
+  const before=new THREE.Vector3();model.getWorldPosition(before);
+  setPicking(null);layout();scene.updateMatrixWorld(true);
+  const after=new THREE.Vector3();model.getWorldPosition(after);const d=after.sub(before);
+  camera.position.add(d);controls.target.add(d);controls.update();
 });
+$('twoPt').checked=twoPoint;
+$('twoPt').onchange=()=>{twoPoint=$('twoPt').checked;store.set('imaratTwoPt',twoPoint);layout();
+  msg(twoPoint?'Precise mode: set A and B on two columns, then tap the same two in AR.':'Start-point mode.');};
 
-/* ---------- AR ---------- */
-const reticle=new THREE.Mesh(new THREE.RingGeometry(.07,.1,32).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0xffb060}));
+/* ---------- AR (Android / WebXR) ---------- */
+const reticle=new THREE.Mesh(new THREE.RingGeometry(.08,.11,36).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0xffb060}));
 reticle.matrixAutoUpdate=false;reticle.visible=false;scene.add(reticle);
-let hitSource=null,points=[],pins=[],baseY=0,lastHit=null,xrAnchor=null,anchorStart=null;
+let hitSource=null,lastHit=null,locked=false,taps=[],pins=[],baseY=0,baseYaw=0,xrAnchor=null,anchorStart=null;
+const tmpV=new THREE.Vector3(),tmpQ=new THREE.Quaternion(),fwd=new THREE.Vector3();
+const yawOf=v=>Math.atan2(-v.z,v.x);
 
-function pin(p,c){const m=new THREE.Mesh(new THREE.SphereGeometry(.04),new THREE.MeshBasicMaterial({color:c}));m.position.copy(p);scene.add(m);pins.push(m)}
-function place(){
-  const [A,B]=points,dir=new THREE.Vector3().subVectors(B,A);dir.y=0;const meas=dir.length();
-  baseY=A.y;anchor.position.set(A.x,baseY+ +$('hgt').value,A.z);
-  anchor.rotation.set(0,Math.atan2(-dir.z,dir.x),0);
-  anchor.scale.setScalar($('fit').checked?meas/modelDist:1);
-  anchor.visible=true;markA.visible=markB.visible=false;anchorStart=null;
-  const err=((meas-modelDist)/modelDist*100);
-  msg(`Placed. Site ${meas.toFixed(2)} m vs model ${modelDist.toFixed(2)} m (${err>=0?'+':''}${err.toFixed(1)}%).`);
+function applyAnchorRot(){anchor.rotation.set(0,baseYaw+THREE.MathUtils.degToRad(userRot),0);}
+function cameraYawTowardModel(){
+  // turn the model so it opens out in front of you from the start point
+  renderer.xr.getCamera().getWorldDirection(fwd);fwd.y=0;fwd.normalize();
+  const c=bbox.getCenter(new THREE.Vector3());const toC=new THREE.Vector3(c.x-START[0],0,c.z-START[1]);
+  return yawOf(fwd)-yawOf(toC);
+}
+function setRot(v){userRot=Math.max(-180,Math.min(180,v));$('rotS').value=userRot;$('rotV').textContent=`${userRot.toFixed(1)}°`;applyAnchorRot();}
+$('rotS').oninput=()=>setRot(+$('rotS').value);
+let holdT=null;const hold=(d)=>{setRot(userRot+d);holdT=setTimeout(function r(){setRot(userRot+d);holdT=setTimeout(r,60)},350)};
+['rl','rr'].forEach((id,i)=>{const d=i?0.5:-0.5;$(id).addEventListener('pointerdown',()=>hold(d));['pointerup','pointerleave','pointercancel'].forEach(ev=>$(id).addEventListener(ev,()=>clearTimeout(holdT)));});
+$('hgt').oninput=()=>{anchor.position.y=baseY+ +$('hgt').value;anchorStart=null;};
+$('toggle').onclick=()=>{anchor.visible=!anchor.visible;$('toggle').textContent=anchor.visible?'Hide':'Show';};
+
+function dropXRAnchor(){if(xrAnchor){try{xrAnchor.delete()}catch(e){}}xrAnchor=null;anchorStart=null;}
+function unlock(){
+  locked=false;taps=[];pins.forEach(p=>scene.remove(p));pins=[];dropXRAnchor();
+  $('arRot').classList.add('hide');$('move').classList.add('hide');layout();
+  if(twoPoint){anchor.visible=false;msg('Scan the floor, then tap the base of column A.');}
+  else msg('Move the phone slowly over the floor until the ring appears.');
+}
+function lockHere(p){
+  locked=true;baseY=p.y;anchor.position.set(p.x,baseY+ +$('hgt').value,p.z);
+  if(lastHit&&lastHit.createAnchor)lastHit.createAnchor().then(a=>{xrAnchor=a;anchorStart=null}).catch(()=>{});
+  $('arRot').classList.remove('hide');$('move').classList.remove('hide');layout();
 }
 function onSelect(){
-  if(!reticle.visible||points.length>=2)return;
-  const p=new THREE.Vector3().setFromMatrixPosition(reticle.matrix);points.push(p);
-  if(points.length===1&&lastHit&&lastHit.createAnchor){lastHit.createAnchor().then(a=>{xrAnchor=a;anchorStart=null}).catch(()=>{});}pin(p,points.length===1?0xff5544:0x44b8ff);
-  if(points.length===1)msg('Column A marked. Now tap column B.');else place();
+  if(!reticle.visible||locked||!model)return;
+  const p=new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
+  if(!twoPoint){lockHere(p);msg('Placed at full scale. Use ⟲ ⟳ or the slider to line the walls up with the real ones.');return;}
+  taps.push(p);const m=new THREE.Mesh(new THREE.SphereGeometry(.05),new THREE.MeshBasicMaterial({color:taps.length===1?0xff5544:0x44b8ff}));m.position.copy(p);scene.add(m);pins.push(m);
+  if(taps.length===1){msg('Column A marked. Now tap column B.');return;}
+  const [A,B]=taps,dir=new THREE.Vector3().subVectors(B,A);dir.y=0;const meas=dir.length();
+  baseYaw=yawOf(dir);lockHere(A);applyAnchorRot();anchor.visible=true;
+  const err=(meas-modelDist)/modelDist*100;
+  msg(`Placed. Site ${meas.toFixed(2)} m vs model ${modelDist.toFixed(2)} m (${err>=0?'+':''}${err.toFixed(1)}%).`);
 }
-function resetPick(){if(xrAnchor){try{xrAnchor.delete()}catch(e){}}xrAnchor=null;anchorStart=null;points=[];pins.forEach(p=>scene.remove(p));pins=[];anchor.visible=false;msg('Scan the floor, then tap the base of column A.');}
-$('reset').onclick=resetPick;
-$('rot').onclick=()=>{extraRot+=Math.PI/2;applyRef()};
-$('flip').onclick=()=>{flip*=-1;applyRef()};
-$('toggle').onclick=()=>{anchor.visible=!anchor.visible;$('toggle').textContent=anchor.visible?'Hide':'Show'};
-$('fit').onchange=()=>points.length===2&&place();
-$('hgt').oninput=()=>{anchor.position.y=baseY+ +$('hgt').value;anchorStart=null;};
-$('turn').oninput=()=>{fine=+$('turn').value;applyRef()};
+$('move').onclick=()=>unlock();
+// taps on the on-screen buttons must not also count as an AR tap
+$('ui').addEventListener('beforexrselect',e=>e.preventDefault());
 
-const supported=navigator.xr&&await navigator.xr.isSessionSupported('immersive-ar').catch(()=>false);
-if(supported){
+let arOK=false;
+if(!isIOS&&navigator.xr){try{arOK=await navigator.xr.isSessionSupported('immersive-ar')}catch(e){}}
+if(arOK){
   const b=ARButton.createButton(renderer,{requiredFeatures:['hit-test'],optionalFeatures:['dom-overlay','anchors'],domOverlay:{root:$('ui')}});
   b.style.display='none';document.body.appendChild(b);
   $('arbtn').classList.remove('hide');$('arbtn').onclick=()=>b.click();
+  $('precise').classList.remove('hide');
+}else if(isIOS){
+  $('ql').classList.remove('hide');$('pickS').classList.add('hide');
+}else{
+  setTimeout(()=>msg('Open this page in Chrome on an Android phone for live AR, or on an iPhone/iPad for Apple AR.'),400);
 }
-const ctrl=renderer.xr.getController(0);ctrl.addEventListener('select',onSelect);scene.add(ctrl);
 
+const ctrl=renderer.xr.getController(0);ctrl.addEventListener('select',onSelect);scene.add(ctrl);
 renderer.xr.addEventListener('sessionstart',async()=>{
   const s=renderer.xr.getSession();hitSource=await s.requestHitTestSource({space:await s.requestReferenceSpace('viewer')});
-  scene.background=null;grid.visible=false;setCut(false);
-  $('previewTools').classList.add('hide');$('arbtn').classList.add('hide');
-  $('arTools').classList.remove('hide');$('arTools2').classList.remove('hide');
-  resetPick();
+  scene.background=null;grid.visible=false;setCut(false);setRot(0);baseYaw=0;
+  $('previewTools').classList.add('hide');$('precise').classList.add('hide');$('arbtn').classList.add('hide');
+  $('arTools').classList.remove('hide');anchor.visible=false;unlock();
 });
 renderer.xr.addEventListener('sessionend',()=>{
-  hitSource=null;reticle.visible=false;pins.forEach(p=>scene.remove(p));pins=[];points=[];
-  anchor.position.set(0,0,0);anchor.rotation.set(0,0,0);anchor.scale.setScalar(1);anchor.visible=true;
-  scene.background=bg;grid.visible=true;applyRef();setCut(true);
-  $('previewTools').classList.remove('hide');$('arbtn').classList.remove('hide');
-  $('arTools').classList.add('hide');$('arTools2').classList.add('hide');frameView();
+  hitSource=null;reticle.visible=false;unlock();locked=false;
+  anchor.position.set(0,0,0);anchor.rotation.set(0,0,0);anchor.visible=true;
+  scene.background=bg;grid.visible=true;setCut(true);layout();frameView();
+  $('previewTools').classList.remove('hide');$('precise').classList.remove('hide');$('arbtn').classList.remove('hide');
+  $('arTools').classList.add('hide');$('arRot').classList.add('hide');
+  msg('AR ended.');
 });
 
-function setCut(v){cutOn=v;renderer.clippingPlanes=v?[cutWorld]:[];$('cut').textContent=$('cut2').textContent='Ceiling: '+(v?'off':'on');}
-$('cut').onclick=$('cut2').onclick=()=>setCut(!cutOn);
 renderer.setAnimationLoop((t,frame)=>{
-  if(cutOn){content.updateMatrixWorld();cutWorld.copy(cutLocal).applyMatrix4(content.matrixWorld);}
   if(frame&&hitSource){
-    const h=frame.getHitTestResults(hitSource);
-    lastHit=h[0]||null;
-    if(xrAnchor&&points.length===2){const ap=frame.getPose(xrAnchor.anchorSpace,renderer.xr.getReferenceSpace());
+    const ref=renderer.xr.getReferenceSpace();const h=frame.getHitTestResults(hitSource);lastHit=h[0]||null;
+    reticle.visible=!!lastHit&&!locked;
+    if(lastHit)reticle.matrix.fromArray(lastHit.getPose(ref).transform.matrix);
+    // live preview: the model rides on the ring at full scale until you tap
+    if(!twoPoint&&!locked&&model){
+      if(lastHit){
+        tmpV.setFromMatrixPosition(reticle.matrix);anchor.position.copy(tmpV);
+        baseYaw=cameraYawTowardModel();applyAnchorRot();
+        if(!anchor.visible){anchor.visible=true;msg('This is the office at full scale. Aim the ring at your start point and tap to place it.');}
+      }else anchor.visible=false;
+    }
+    // keep the locked model pinned to the real world (ARCore anchor)
+    if(locked&&xrAnchor){const ap=frame.getPose(xrAnchor.anchorSpace,ref);
       if(ap){const v=new THREE.Vector3(ap.transform.position.x,ap.transform.position.y,ap.transform.position.z);
         if(!anchorStart)anchorStart={a:v.clone(),p:anchor.position.clone()};
         else anchor.position.copy(anchorStart.p).add(v.sub(anchorStart.a));}}
-    if(h.length&&points.length<2){reticle.visible=true;reticle.matrix.fromArray(h[0].getPose(renderer.xr.getReferenceSpace()).transform.matrix);}
-    else reticle.visible=false;
   }else controls.update();
+  if(cutOn){content.updateMatrixWorld();cutWorld.copy(cutLocal).applyMatrix4(content.matrixWorld);}
   renderer.render(scene,camera);
 });
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-
-if(!supported)setTimeout(()=>{if(modelLoaded)msg($('msg').textContent+'  (AR needs Chrome on Android, or a WebXR viewer app on iPad.)')},50);
-tryDefault();
 </script>
 </body>
 </html>

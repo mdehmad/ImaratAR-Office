@@ -1,5 +1,8 @@
 /*.glb
   Content-Type: model/gltf-binary
   Cache-Control: public, max-age=86400
+/*.usdz
+  Content-Type: model/vnd.usdz+zip
+  Cache-Control: public, max-age=86400
 /*
   Permissions-Policy: camera=(self), xr-spatial-tracking=(self)
