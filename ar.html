@@ -12,7 +12,9 @@ canvas{display:block}
 #top a{pointer-events:auto;color:#f3e7d8;text-decoration:none;font-size:13px;letter-spacing:.12em;text-transform:uppercase;background:#0008;padding:8px 14px;border-radius:20px}
 .word{font-family:Georgia,serif;letter-spacing:.3em;font-weight:600;font-size:18px}
 .word img{height:28px;display:block}
-#ui{position:fixed;left:0;right:0;bottom:0;padding:16px 14px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,#000d 30%);z-index:10;display:flex;flex-direction:column;gap:10px}
+#overlay{position:fixed;inset:0;pointer-events:none;z-index:10}
+#overlay a,#overlay button,#overlay input,#overlay label,#overlay summary{pointer-events:auto}
+#ui{position:fixed;left:0;right:0;bottom:0;pointer-events:none;padding:16px 14px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,#000d 30%);z-index:10;display:flex;flex-direction:column;gap:10px}
 #msg{font-size:15px;text-align:center;line-height:1.45;min-height:21px;text-shadow:0 1px 3px #000}
 .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center}
 button,.file{background:#4a3a2ccc;color:#fff;border:0;border-radius:22px;padding:10px 15px;font-size:13px;cursor:pointer;font-family:inherit}
@@ -32,6 +34,7 @@ summary{cursor:pointer;list-style:none;text-decoration:underline;opacity:.8}
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 </head>
 <body>
+<div id="overlay">
 <div id="top">
   <a href="index.html">‹ Back</a>
   <span class="word"><img src="logo.png" alt="IMARAT" onerror="this.replaceWith('IMARAT')"></span>
@@ -74,6 +77,7 @@ summary{cursor:pointer;list-style:none;text-decoration:underline;opacity:.8}
     <!-- iPhone / iPad: Apple AR Quick Look (needs an <img> child) -->
     <a class="main hide" id="ql" rel="ar" href="model.usdz#allowsContentScaling=0"><img src="img/reception.jpg" alt="">View in AR</a>
   </div>
+</div>
 </div>
 
 <script type="module">
@@ -232,7 +236,9 @@ function lockHere(p){
   $('arRot').classList.remove('hide');$('move').classList.remove('hide');layout();
 }
 function onSelect(){
-  if(!reticle.visible||locked||!model)return;
+  if(locked||!model)return;
+  if(!reticle.visible){msg('Floor not found yet. Point the phone at the floor and move it slowly until the ring appears.');return;}
+  try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}
   const p=new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
   if(!twoPoint){lockHere(p);msg('Placed at full scale. Use ⟲ ⟳ or the slider to line the walls up with the real ones.');return;}
   taps.push(p);const m=new THREE.Mesh(new THREE.SphereGeometry(.05),new THREE.MeshBasicMaterial({color:taps.length===1?0xff5544:0x44b8ff}));m.position.copy(p);scene.add(m);pins.push(m);
@@ -244,12 +250,13 @@ function onSelect(){
 }
 $('move').onclick=()=>unlock();
 // taps on the on-screen buttons must not also count as an AR tap
-$('ui').addEventListener('beforexrselect',e=>e.preventDefault());
+// Only taps on controls are kept from placing the model; taps anywhere else place it.
+$('overlay').addEventListener('beforexrselect',e=>{if(e.target.closest&&e.target.closest('button,input,a,label,summary,.rot'))e.preventDefault();});
 
 let arOK=false;
 if(!isIOS&&navigator.xr){try{arOK=await navigator.xr.isSessionSupported('immersive-ar')}catch(e){}}
 if(arOK){
-  const b=ARButton.createButton(renderer,{requiredFeatures:['hit-test'],optionalFeatures:['dom-overlay','anchors'],domOverlay:{root:$('ui')}});
+  const b=ARButton.createButton(renderer,{requiredFeatures:['hit-test'],optionalFeatures:['dom-overlay','anchors'],domOverlay:{root:$('overlay')}});
   b.style.display='none';document.body.appendChild(b);
   $('arbtn').classList.remove('hide');$('arbtn').onclick=()=>b.click();
   $('precise').classList.remove('hide');
